@@ -22,6 +22,59 @@ python main.py samples/MaxElement.json --style json    # normalized JSON
 python main.py samples/MaxElement.json -o out.txt      # write to a file
 ```
 
+## Repairing a diagram
+
+Every parsed diagram is repaired before it is rendered or written. A repair
+rewrites what a CbC rule says is wrong and reports each condition it touched on
+stderr, so the output is never silently different from the exported file:
+
+```
+repair: rewrote 2 conditions in 1 statement -- re-run with --no-repair to keep the diagram as it was exported.
+  MaxElement: REPETITION 'Repetition' precondition
+    was  maxe(A,0,j,i) && j != A.length
+    now  A.length > 0 && i == 0 && j == 1
+    why  handed down by the composition above it, as its second statement
+  MaxElement: REPETITION 'Repetition' postcondition
+    was  maxe(A,0,j,i)
+    now  maxe(A, 0, A.length, i)
+    why  handed down by the composition above it, as its second statement
+```
+
+`--no-repair` keeps the diagram exactly as exported. The report goes to stderr,
+so `--style json` stays valid JSON and `-o` writes the rendering alone.
+
+### Contracts
+
+A statement's pre- and postcondition belong to the slot it fills, not to the
+statement itself: the refinement tree hands them down from above.
+
+| Above it      | What it hands down                                          |
+| ------------- | ------------------------------------------------------------ |
+| `ROOT`        | its own contract                                            |
+| `COMPOSITION` | `{pre} first {intermediate}` and `{intermediate} second {post}` |
+| `SELECTION`   | `{pre && guard_i} command_i {post}`                         |
+| `REPETITION`  | `{invariant && guard} body {invariant}`                     |
+
+`repair/contracts.py` reads that table off the tree; conditions the parent does
+not have are handed down as `None` and nothing is invented.
+
+### Repetitions
+
+WebCorC exports loops carrying the contract of their own *body* — the one the
+loop hands down — instead of the one handed to them: the precondition reads
+`invariant && guard` and the postcondition a bare `invariant`. In the samples
+this is the only thing that ever disagrees with the tree: of 66 handed-down
+conditions, the 8 that mismatch are all loop pre- and postconditions.
+
+Both are replaced by what the statement above hands the loop. The invariant and
+the guard stay where they are — they are the loop's proof obligation (`pre =>
+I`, `I && !G => post`), not its contract.
+
+Conditions are compared by their top-level `&&` operands, ignoring whitespace,
+order and wrapping parentheses, so a loop that already agrees with its parent is
+left untouched. A loop whose parent has no condition for a slot keeps the one it
+carries.
+
 ## Rendering styles
 
 `--style` (alias `--format`) picks how the parsed diagrams are printed:
@@ -55,13 +108,14 @@ out in ascending order. The root refines nothing and stays plain `S`; every
 other statement is `S<sub>n</sub>` starting at 1 — including the branches of a
 selection, which use their global number rather than a local one.
 
-Conditions are written with the mathematical connectives: `&&` becomes `∧` and
-`||` becomes `∨`. All remaining text is HTML-escaped (`&lt;`, `&gt;`), the index
-is a `<sub>` tag, and line breaks stay real newlines:
+Conditions are written with mathematical symbols — `&&` and `||` become `∧` and
+`∨`, the JML binders `\forall` and `\exists` become `∀` and `∃`. All remaining
+text is HTML-escaped (`&lt;`, `&gt;`), the index is a `<sub>` tag, and line
+breaks stay real newlines:
 
 ```html
 S<sub>3</sub>: REPETITION
-    {maxe(A,0,j,i) ∧ j != A.length} do [maxe(A,0,j,i), A.length - j] j != A.length -&gt; S<sub>6</sub> od {maxe(A,0,j,i)}
+    {A.length &gt; 0 ∧ i == 0 ∧ j == 1} do [maxe(A,0,j,i), A.length - j] j != A.length -&gt; S<sub>6</sub> od {maxe(A, 0, A.length, i)}
 
 S<sub>7</sub>: SELECTION
     {maxe(A,0,j,i) ∧ j != A.length} if A[j] &gt; A[i] -&gt; S<sub>9</sub> elif A[j] &lt;= A[i] -&gt; S<sub>10</sub> fi {maxe(A,0,j+1,i)}
@@ -80,11 +134,14 @@ alone.
 | `main.py`                   | CLI: arguments, file loading, output                         |
 | `parser/cbc_json_parser.py` | extracts the models from the WebCorC JSON                    |
 | `models/`                   | one model per statement type, plus `Diagram` and `Condition` |
+| `repair/`                   | one module per repair, registered in `repair/__init__.py`    |
 | `rendering/`                | one module per style, registered in `rendering/__init__.py`  |
 | `drawio/`                   | builds and writes the `.drawio` files                        |
 
 A new style is a module with a `render(diagrams, options)` function plus an
-entry in `rendering.RENDERERS` — the CLI picks up its name automatically.
+entry in `rendering.RENDERERS` — the CLI picks up its name automatically. A new
+repair is a module with a `repair(diagram)` function returning the `Fix`es it
+made, plus an entry in `repair.REPAIRS`.
 
 ### The `drawio` module
 
@@ -136,10 +193,15 @@ type additionally:
 
 ## Using it as a library
 
+The parser stays faithful to the file — repairing is a step of its own:
+
 ```python
+import repair
 from parser import parse_file
 
-diagram = parse_file("samples/MaxElement.json")
+diagram = parse_file("samples/MaxElement.json")   # as exported
+print(repair.apply([diagram]).text())             # repaired in place
+
 for statement in diagram.walk():          # the ROOT first, then depth first
     print(statement.type, statement.precondition, statement.postcondition)
 ```

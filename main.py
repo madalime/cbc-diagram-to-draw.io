@@ -3,6 +3,10 @@
     python main.py samples/MaxElement.json
     python main.py samples/*.json --style hoare
     python main.py samples/MaxElement.json --style json --output out.json
+    python main.py samples/MaxElement.json --no-repair
+
+Parsed diagrams are repaired before they are rendered or written; the repairs
+report what they changed on stderr.
 """
 
 from __future__ import annotations
@@ -13,6 +17,7 @@ from pathlib import Path
 from typing import List, Optional
 
 import drawio
+import repair
 import rendering
 from models import Diagram
 from parser import CbcJsonParser, CbcParseError
@@ -54,6 +59,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="indentation of the JSON output (default: 2)",
     )
     arg_parser.add_argument(
+        repair.FLAG,
+        dest="repair",
+        action="store_false",
+        help="keep the diagrams as exported, broken conditions and all, "
+        "instead of repairing them first",
+    )
+    arg_parser.add_argument(
         "-d",
         "--drawio",
         nargs="?",
@@ -85,6 +97,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     except (CbcParseError, OSError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
+
+    if args.repair:
+        report = repair.apply(diagrams)
+        if report:
+            print(report.text(), file=sys.stderr)
 
     if args.drawio is not None:
         try:
