@@ -3,15 +3,17 @@
 Each statement of the diagram becomes a numbered refinement step::
 
     S<sub>4</sub>: STATEMENT
-        {A.length &gt; 0} i := 0; {A.length &gt; 0 &amp;&amp; i == 0}
+        {A.length &gt; 0} i := 0; {A.length &gt; 0 ∧ i == 0}
 
 The step is titled with the placeholder it refines: the body of a statement
 names its children as ``S<sub>n</sub>``, and the step spelling that child out
 carries the same label.  The root refines nothing and is simply ``S``.
 
 Numbers are handed out level by level -- left to right, top to bottom -- so a
-statement is always numbered before the statements it refines into.  All text
-is HTML-escaped, so the output can be dropped into an HTML context as is.
+statement is always numbered before the statements it refines into.  Conditions
+carry the mathematical connectives -- ``&&`` and ``||`` are written ``∧`` and
+``∨``.  All text is HTML-escaped, so the output can be dropped into an HTML
+context as is.
 """
 
 from __future__ import annotations
@@ -40,6 +42,10 @@ ARROW = "-&gt;"
 
 #: A lone ``=`` -- not part of ``==``, ``<=``, ``>=``, ``!=`` or ``:=``.
 ASSIGNMENT = re.compile(r"(?<![=!<>:])=(?!=)")
+
+#: The logical connectives of a condition, as their mathematical symbols.
+AND = "∧"
+OR = "∨"
 
 #: Maps ``id(statement)`` to its refinement number; the root is not in it.
 Numbering = Dict[int, int]
@@ -78,7 +84,10 @@ def refinement_order(diagram: Diagram) -> List[Statement]:
 
 def declarations(heading: str, entries: Sequence[object]) -> str:
     """A heading over one line per entry -- the HTML of a declaration box."""
-    lines = [f"<b>{heading}</b>"] + [_escape(str(entry)) for entry in entries]
+    lines = [f"<b>{heading}</b>"] + [
+        _text(entry) if isinstance(entry, Condition) else _escape(str(entry))
+        for entry in entries
+    ]
     return "<br>".join(lines)
 
 
@@ -153,7 +162,12 @@ def _braces(condition: Optional[Condition]) -> str:
 
 
 def _text(condition: Optional[Condition]) -> str:
-    return "" if condition is None else _escape(str(condition))
+    return "" if condition is None else _escape(_logic(str(condition)))
+
+
+def _logic(condition: str) -> str:
+    """``&&`` and ``||`` as ∧ and ∨; negations are left as they are written."""
+    return condition.replace("&&", AND).replace("||", OR)
 
 
 def _escape(text: str) -> str:

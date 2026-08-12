@@ -55,21 +55,23 @@ out in ascending order. The root refines nothing and stays plain `S`; every
 other statement is `S<sub>n</sub>` starting at 1 — including the branches of a
 selection, which use their global number rather than a local one.
 
-All text is HTML-escaped (`&amp;&amp;`, `&lt;`, `&gt;`), the index is a `<sub>`
-tag, and line breaks stay real newlines:
+Conditions are written with the mathematical connectives: `&&` becomes `∧` and
+`||` becomes `∨`. All remaining text is HTML-escaped (`&lt;`, `&gt;`), the index
+is a `<sub>` tag, and line breaks stay real newlines:
 
 ```html
 S<sub>3</sub>: REPETITION
-    {maxe(A,0,j,i) &amp;&amp; j != A.length} do [maxe(A,0,j,i), A.length - j] j != A.length -&gt; S<sub>6</sub> od {maxe(A,0,j,i)}
+    {maxe(A,0,j,i) ∧ j != A.length} do [maxe(A,0,j,i), A.length - j] j != A.length -&gt; S<sub>6</sub> od {maxe(A,0,j,i)}
 
 S<sub>7</sub>: SELECTION
-    {maxe(A,0,j,i) &amp;&amp; j != A.length} if A[j] &gt; A[i] -&gt; S<sub>9</sub> elif A[j] &lt;= A[i] -&gt; S<sub>10</sub> fi {maxe(A,0,j+1,i)}
+    {maxe(A,0,j,i) ∧ j != A.length} if A[j] &gt; A[i] -&gt; S<sub>9</sub> elif A[j] &lt;= A[i] -&gt; S<sub>10</sub> fi {maxe(A,0,j+1,i)}
 
 S<sub>9</sub>: STATEMENT
-    {maxe(A,0,j,i) &amp;&amp; j != A.length &amp;&amp; A[j] &gt; A[i]} i := j; {maxe(A,0,j+1,i)}
+    {maxe(A,0,j,i) ∧ j != A.length ∧ A[j] &gt; A[i]} i := j; {maxe(A,0,j+1,i)}
 ```
 
-Only assignments are rewritten to `:=`; `==`, `<=`, `>=` and `!=` are left alone.
+Only assignments are rewritten to `:=`; `==`, `<=`, `>=`, `!=` and `!` are left
+alone.
 
 ## Layout
 

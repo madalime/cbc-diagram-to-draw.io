@@ -102,8 +102,16 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.output:
         args.output.write_text(output + "\n", encoding="utf-8")
     else:
-        print(output)
+        _print(output)
     return 0
+
+
+def _print(output: str) -> None:
+    """Print as UTF-8 -- conditions carry ``∧`` and ``∨``, which the Windows
+    default code page cannot encode."""
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+    print(output)
 
 
 if __name__ == "__main__":
