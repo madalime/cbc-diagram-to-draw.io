@@ -116,12 +116,18 @@ def title(statement: Statement, numbers: Numbering) -> str:
     return f"{_label(statement, numbers)}: {statement.type.value}"
 
 
-def triple(statement: Statement, numbers: Numbering) -> str:
-    """``{pre} i := 0; {post}`` -- the annotated guarded command."""
-    return (
-        f"{_braces(statement.precondition)}"
-        f" {_body(statement, numbers)} "
-        f"{_braces(statement.postcondition)}"
+def triple(statement: Statement, numbers: Numbering, separator: str = " ") -> str:
+    """``{pre} i := 0; {post}`` -- the annotated guarded command.
+
+    *separator* goes between the three parts: a space for running text, a line
+    break for a caller that wants each part on a line of its own.
+    """
+    return separator.join(
+        (
+            _braces(statement.precondition),
+            _body(statement, numbers),
+            _braces(statement.postcondition),
+        )
     )
 
 

@@ -1,6 +1,7 @@
 """Builds the mxGraph XML of a ``.drawio`` file from a parsed diagram.
 
-One box per statement holding its annotated guarded command, and one edge per
+One box per statement holding its annotated guarded command -- precondition,
+command and postcondition on a line each -- and one edge per
 refinement carrying the step's title -- ``S<sub>1</sub>: COMPOSITION`` -- as an
 edge label beside the arrow.  Each box wears its step number in a small circle
 in its top left corner.  Beside the root stand the diagram's two
@@ -29,12 +30,17 @@ SIDE_PADDING = f"spacingLeft={PADDING};spacingRight={PADDING};"
 
 BOX_STYLE = f"rounded=1;whiteSpace=wrap;html=1;{SIDE_PADDING}"
 
+#: How far the declaration list is pulled up from the box's top border, in
+#: pixels.  Negative: draw.io leaves a gap above a top-aligned label, and the
+#: heading is meant to sit flush against the border instead.
+DECLARATION_TOP_PADDING = -6
+
 #: The variables and the global conditions.  Square and shadowed, so they read
 #: as notes on the diagram rather than as steps of it; a list, so read from the
 #: top left.
 DECLARATION_STYLE = (
     f"rounded=0;whiteSpace=wrap;html=1;shadow=1;align=left;verticalAlign=top;"
-    f"{SIDE_PADDING}"
+    f"spacingTop={DECLARATION_TOP_PADDING};{SIDE_PADDING}"
 )
 
 #: The two declaration boxes: heading, the diagram's entries, and their place
@@ -74,6 +80,13 @@ BADGE_INDENT = BADGE_INSET + BADGE_SIZE + BADGE_INSET - PADDING
 #: The triple, indented past the badge.  A wrapper, because draw.io has no style
 #: key for a first-line indent -- but its labels are HTML, and CSS does.
 INDENTED = f'<div style="text-indent:{BADGE_INDENT}px">{{value}}</div>'
+
+#: What separates the triple's three parts inside a box.  A line break written
+#: into the label itself, so the precondition, the command and the postcondition
+#: always start their own line -- rather than running on and breaking wherever
+#: the box happens to end.  Wrapping stays on: a part too long for the box still
+#: wraps, only within its own line.
+TRIPLE_SEPARATOR = "<br>"
 
 EDGE_STYLE = (
     "edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;"
@@ -188,7 +201,9 @@ def _vertex(
         "mxCell",
         {
             "id": cell_id,
-            "value": INDENTED.format(value=gcl_style.triple(statement, numbers)),
+            "value": INDENTED.format(
+                value=gcl_style.triple(statement, numbers, TRIPLE_SEPARATOR)
+            ),
             "style": BOX_STYLE,
             "vertex": "1",
             "parent": "1",

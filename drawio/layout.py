@@ -20,9 +20,9 @@ from typing import Dict, List
 from models import Diagram, Statement
 
 BOX_WIDTH = 300
-BOX_HEIGHT = 40
-COLUMN_GAP = 40
-ROW_GAP = 40
+BOX_HEIGHT = 50
+COLUMN_GAP = 20
+ROW_GAP = 30
 
 #: The page the boxes are written onto: A4, landscape, in draw.io pixels.
 PAGE_WIDTH = 1169
