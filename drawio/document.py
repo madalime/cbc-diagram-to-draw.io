@@ -53,9 +53,16 @@ DECLARATIONS = (
 #: The step number, in a small circle inside the box's top left corner, so it
 #: reads as a badge on the box rather than as part of its triple.  Only the
 #: statement boxes carry one; the declaration boxes beside the root do not.
+#:
+#: ``resizeWidth`` and ``resizeHeight`` are draw.io's per-child opt-out of the
+#: resize a parent hands down to its children: without them, dragging a box's
+#: handle scales the badge along with it.  Together with the relative geometry
+#: of :func:`_badge` the circle keeps its size and its corner whatever is done
+#: to the box.
 BADGE_STYLE = (
     "ellipse;whiteSpace=wrap;html=1;align=center;verticalAlign=middle;"
     "fillColor=#ffffff;strokeColor=#000000;fontSize=8;spacing=0;"
+    "resizeWidth=0;resizeHeight=0;"
 )
 
 #: The badge's diameter, in pixels.  Small enough that a two-digit number
@@ -79,7 +86,7 @@ BADGE_INDENT = BADGE_INSET + BADGE_SIZE + BADGE_INSET - PADDING
 
 #: The triple, indented past the badge.  A wrapper, because draw.io has no style
 #: key for a first-line indent -- but its labels are HTML, and CSS does.
-INDENTED = f'<div style="text-indent:{BADGE_INDENT}px">{{value}}</div>'
+INDENTED = f'<div>{{value}}</div>' # f'<div style="text-indent:{BADGE_INDENT}px">{{value}}</div>'
 
 #: What separates the triple's three parts inside a box.  A line break written
 #: into the label itself, so the precondition, the command and the postcondition
@@ -221,6 +228,13 @@ def _badge(root: ET.Element, cell_id: str, number: int) -> None:
     step spells out.  Being a child, the badge is placed relative to the box's
     top left corner and travels with it when the box is moved in draw.io.
 
+    The geometry is *relative*: ``x``/``y`` are a fraction of the box -- ``0``,
+    ``0`` is its top left corner -- and the ``offset`` is the inset from there
+    in whole pixels.  draw.io scales a child's absolute geometry when the box is
+    resized, which would grow the circle and drift it away from the corner; a
+    relative one it leaves alone, so the badge stays :data:`BADGE_SIZE` across
+    and :data:`BADGE_INSET` from both borders however the box is stretched.
+
     The triple starts clear of it: see :data:`BADGE_INDENT`.
     """
     cell = ET.SubElement(
@@ -235,16 +249,22 @@ def _badge(root: ET.Element, cell_id: str, number: int) -> None:
             "parent": cell_id,
         },
     )
-    ET.SubElement(
+    geometry = ET.SubElement(
         cell,
         "mxGeometry",
         {
-            "x": _number(BADGE_INSET),
-            "y": _number(BADGE_INSET),
+            "x": "0",
+            "y": "0",
             "width": _number(BADGE_SIZE),
             "height": _number(BADGE_SIZE),
+            "relative": "1",
             "as": "geometry",
         },
+    )
+    ET.SubElement(
+        geometry,
+        "mxPoint",
+        {"x": _number(BADGE_INSET), "y": _number(BADGE_INSET), "as": "offset"},
     )
 
 
