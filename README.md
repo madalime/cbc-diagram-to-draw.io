@@ -1,5 +1,5 @@
 # cbc-diagram-to-draw.io
-Converts CbC diagrams imported from WebCorC into draw.io diagrams
+Converts CbC diagrams imported from WebCorC into [draw.io](https://www.draw.io) diagrams
 
 ## Converting a diagram
 
@@ -9,9 +9,16 @@ python main.py samples/MaxElement.json --drawio         # into the current direc
 ```
 
 Each diagram becomes one draw.io file, `CbC_MaxElement.drawio` for a diagram
-named `MaxElement`: one 440×40 box per statement holding its
+named `MaxElement`: one 300×40 box per statement holding its
 [triple](#the-gcl-style), and one arrow per refinement carrying the step's
-title (`S₁: COMPOSITION`) as an edge label to its right.
+title (`S₁: COMPOSITION`) as an edge label to its right. Boxes keep that fixed
+size and long triples simply overflow them — the layout is meant to be tidied up
+by hand in draw.io.
+
+Each box wears its step number in a small circle in its top left corner: the
+root is `0`, every other box carries the number it was named with in its parent,
+the `S₁`, `S₂`, … that this step spells out. The variables and global conditions
+stand beside the root as plain notes and carry no circle.
 
 ## Inspecting a diagram
 
@@ -97,8 +104,8 @@ pre- and postcondition.
 | `STATEMENT`   | `{pre} i := 0; {post}` (Java `=` becomes `:=`)         |
 | `SKIP`        | `{pre} skip {post}`                                    |
 | `COMPOSITION` | `{pre} S_a {intermediate} S_b {post}`                  |
-| `SELECTION`   | `{pre} if Guard1 -> S_a elif Guard2 -> S_b fi {post}`  |
-| `REPETITION`  | `{pre} do [invariant, variant] Guard -> S_a od {post}` |
+| `SELECTION`   | `{pre} if Guard1 → S_a elif Guard2 → S_b fi {post}`    |
+| `REPETITION`  | `{pre} do [invariant, variant] Guard → S_a od {post}`  |
 
 `S_a`, `S_b` being the numbers of the nested statements.
 
@@ -108,24 +115,36 @@ out in ascending order. The root refines nothing and stays plain `S`; every
 other statement is `S<sub>n</sub>` starting at 1 — including the branches of a
 selection, which use their global number rather than a local one.
 
-Conditions are written with mathematical symbols — `&&` and `||` become `∧` and
-`∨`, the JML binders `\forall` and `\exists` become `∀` and `∃`. All remaining
-text is HTML-escaped (`&lt;`, `&gt;`), the index is a `<sub>` tag, and line
-breaks stay real newlines:
+Conditions are written with mathematical symbols:
+
+| Written              | Becomes  |
+| -------------------- | -------- |
+| `&&`, `\|\|`         | `∧`, `∨` |
+| `\forall`, `\exists` | `∀`, `∃` |
+| `<=`, `>=`           | `≤`, `≥` |
+| `==`, `!=`           | `=`, `≠` |
+| `->`, `==>`          | `→`, `⇒` |
+
+The guarded command's own arrow (`if Guard -> S`, `do Guard -> S od`) is the same
+`→`; JML's `==>` keeps a double arrow so an implication stays apart from it. All
+remaining text is HTML-escaped (`&lt;`, `&gt;`), the index is a `<sub>` tag, and
+line breaks stay real newlines:
 
 ```html
 S<sub>3</sub>: REPETITION
-    {A.length &gt; 0 ∧ i == 0 ∧ j == 1} do [maxe(A,0,j,i), A.length - j] j != A.length -&gt; S<sub>6</sub> od {maxe(A, 0, A.length, i)}
+    {A.length &gt; 0 ∧ i = 0 ∧ j = 1} do [maxe(A,0,j,i), A.length - j] j ≠ A.length → S<sub>6</sub> od {maxe(A, 0, A.length, i)}
 
 S<sub>7</sub>: SELECTION
-    {maxe(A,0,j,i) ∧ j != A.length} if A[j] &gt; A[i] -&gt; S<sub>9</sub> elif A[j] &lt;= A[i] -&gt; S<sub>10</sub> fi {maxe(A,0,j+1,i)}
+    {maxe(A,0,j,i) ∧ j ≠ A.length} if A[j] &gt; A[i] → S<sub>9</sub> elif A[j] ≤ A[i] → S<sub>10</sub> fi {maxe(A,0,j+1,i)}
 
 S<sub>9</sub>: STATEMENT
-    {maxe(A,0,j,i) ∧ j != A.length ∧ A[j] &gt; A[i]} i := j; {maxe(A,0,j+1,i)}
+    {maxe(A,0,j,i) ∧ j ≠ A.length ∧ A[j] &gt; A[i]} i := j; {maxe(A,0,j+1,i)}
 ```
 
-Only assignments are rewritten to `:=`; `==`, `<=`, `>=`, `!=` and `!` are left
-alone.
+The table is for conditions only. A `STATEMENT`'s Java code keeps its own
+spelling and is only rewritten where it is an assignment, `i = 0;` to `i := 0;`.
+A lone `<`, `>` or `!` stays the plain ASCII sign everywhere — Unicode has no
+mathematical variant of `<` and `>` to match `≤` and `≥` with.
 
 ## Layout
 
@@ -147,13 +166,18 @@ made, plus an entry in `repair.REPAIRS`.
 
 | Path                 | Purpose                                                    |
 | -------------------- | ---------------------------------------------------------- |
-| `drawio/document.py` | `to_xml(diagram)` — the mxGraph XML: boxes, labels, edges  |
+| `drawio/document.py` | `to_xml(diagram)` — the mxGraph XML: boxes, badges, edges  |
 | `drawio/layout.py`   | `tree_layout(diagram)` — where each box goes               |
 | `drawio/writer.py`   | `write(diagram, dir)` / `write_all(...)` — the named files |
 
 The labels are the HTML of the `gcl` style, which is what draw.io wants in a
 `html=1` cell: the triple goes into the box, the step title onto the arrow that
-refines into it. Boxes are a fixed 440×40 and long triples overflow them.
+refines into it. Boxes are a fixed 300×40 and long triples overflow them. The
+step number rides along as a 12×12 ellipse parented to the box, inset 2px from
+its top left corner so that it moves with the box. The triple is wrapped in a
+`<div style="text-indent:8px">` to start clear of it — CSS indents the first
+line and only the first line, and re-applies it whenever draw.io re-wraps the
+label, so the indent survives resizing and editing the box by hand.
 
 The boxes get a fresh tree layout — one row per refinement level, leaves packed
 left to right, parents centred above their children — because WebCorC's own
@@ -161,7 +185,7 @@ coordinates (kept as `Statement.position`) place its nodes about 250px apart.
 Rows and columns are 40px apart and the drawing starts 40px into the page.
 
 The page is a landscape A4 (1169×826) at `pageScale="1"`, and nothing is ever
-scaled to it: boxes stay 440×40 and a tree wider than one page runs across
+scaled to it: boxes stay 300×40 and a tree wider than one page runs across
 several. The layout is a starting point for the import — rearrange it by hand in
 draw.io.
 

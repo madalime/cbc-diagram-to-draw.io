@@ -2,7 +2,8 @@
 
 One box per statement holding its annotated guarded command, and one edge per
 refinement carrying the step's title -- ``S<sub>1</sub>: COMPOSITION`` -- as an
-edge label beside the arrow.  Beside the root stand the diagram's two
+edge label beside the arrow.  Each box wears its step number in a small circle
+in its top left corner.  Beside the root stand the diagram's two
 declaration boxes, its variables and its global conditions.  All of them come
 from :mod:`rendering.gcl_style`, whose HTML is exactly what draw.io expects in
 a ``html=1`` cell.
@@ -42,6 +43,37 @@ DECLARATIONS = (
     ("Variables", "java_variables", 0),
     ("Global Conditions", "global_conditions", 1),
 )
+
+#: The step number, in a small circle inside the box's top left corner, so it
+#: reads as a badge on the box rather than as part of its triple.  Only the
+#: statement boxes carry one; the declaration boxes beside the root do not.
+BADGE_STYLE = (
+    "ellipse;whiteSpace=wrap;html=1;align=center;verticalAlign=middle;"
+    "fillColor=#ffffff;strokeColor=#000000;fontSize=8;spacing=0;"
+)
+
+#: The badge's diameter, in pixels.  Small enough that a two-digit number
+#: overflows it a little, which is fine.
+BADGE_SIZE = 12
+
+#: How far the badge sits from the box's top and left border, in pixels.
+BADGE_INSET = 2
+
+#: How far right of :data:`PADDING` the triple's *first* line starts, so that it
+#: begins clear of the badge.  CSS ``text-indent`` indents the first line and
+#: only the first line, and the browser inside draw.io re-applies it every time
+#: it lays the label out: a box that is resized, retyped or re-wrapped by hand
+#: keeps the indent, and it follows the text if the wrap point moves.
+#:
+#: CSS cannot ask whether the text wrapped at all, so a triple short enough for
+#: one line is indented too.  Deciding that here instead would mean guessing the
+#: wrap point at generation time, and the guess would go stale the moment the
+#: box is touched in draw.io.
+BADGE_INDENT = BADGE_INSET + BADGE_SIZE + BADGE_INSET - PADDING
+
+#: The triple, indented past the badge.  A wrapper, because draw.io has no style
+#: key for a first-line indent -- but its labels are HTML, and CSS does.
+INDENTED = f'<div style="text-indent:{BADGE_INDENT}px">{{value}}</div>'
 
 EDGE_STYLE = (
     "edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;"
@@ -150,18 +182,55 @@ def _vertex(
     box: Optional[Box],
 ) -> None:
     box = box or Box(x=0, y=0)
+    cell_id = cell_ids[id(statement)]
     cell = ET.SubElement(
         root,
         "mxCell",
         {
-            "id": cell_ids[id(statement)],
-            "value": gcl_style.triple(statement, numbers),
+            "id": cell_id,
+            "value": INDENTED.format(value=gcl_style.triple(statement, numbers)),
             "style": BOX_STYLE,
             "vertex": "1",
             "parent": "1",
         },
     )
     ET.SubElement(cell, "mxGeometry", _geometry(box))
+    _badge(root, cell_id, numbers.get(id(statement), 0))
+
+
+def _badge(root: ET.Element, cell_id: str, number: int) -> None:
+    """The circled step number, a child of the box it sits on.
+
+    The root refines nothing and is numbered ``0``; every other box carries the
+    number it was named with in its parent -- the ``S<sub>n</sub>`` that this
+    step spells out.  Being a child, the badge is placed relative to the box's
+    top left corner and travels with it when the box is moved in draw.io.
+
+    The triple starts clear of it: see :data:`BADGE_INDENT`.
+    """
+    cell = ET.SubElement(
+        root,
+        "mxCell",
+        {
+            "id": f"{cell_id}-badge",
+            "value": str(number),
+            "style": BADGE_STYLE,
+            "vertex": "1",
+            "connectable": "0",
+            "parent": cell_id,
+        },
+    )
+    ET.SubElement(
+        cell,
+        "mxGeometry",
+        {
+            "x": _number(BADGE_INSET),
+            "y": _number(BADGE_INSET),
+            "width": _number(BADGE_SIZE),
+            "height": _number(BADGE_SIZE),
+            "as": "geometry",
+        },
+    )
 
 
 def _geometry(box: Box) -> Dict[str, str]:

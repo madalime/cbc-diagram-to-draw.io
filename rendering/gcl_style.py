@@ -12,7 +12,9 @@ carries the same label.  The root refines nothing and is simply ``S``.
 Numbers are handed out level by level -- left to right, top to bottom -- so a
 statement is always numbered before the statements it refines into.  Conditions
 carry the mathematical symbols -- ``&&``, ``||``, ``\\forall`` and ``\\exists``
-are written ``∧``, ``∨``, ``∀`` and ``∃``.  All text is HTML-escaped, so the
+are written ``∧``, ``∨``, ``∀`` and ``∃``, the comparisons ``<=``, ``>=``,
+``!=`` and ``==`` are written ``≤``, ``≥``, ``≠`` and ``=``, and an implication
+``->`` or ``==>`` is written ``→`` or ``⇒``.  All text is HTML-escaped, so the
 output can be dropped into an HTML context as is.
 """
 
@@ -38,13 +40,27 @@ from .options import RenderOptions
 INDENT = "    "
 PLACEHOLDER = "<b>S</b>"
 SKIP_TEXT = "<b>skip</b>"
-ARROW = "-&gt;"
+#: The guarded command's arrow, ``if Guard → S``; also what an implication
+#: written ``->`` inside a condition becomes.
+ARROW = "→"
 
 #: A lone ``=`` -- not part of ``==``, ``<=``, ``>=``, ``!=`` or ``:=``.
 ASSIGNMENT = re.compile(r"(?<![=!<>:])=(?!=)")
 
 #: A condition's operators and JML binders, as their mathematical symbols.
+#:
+#: The order is the point: the replacements run one after another over the same
+#: text, so every spelling has to come before the shorter one it contains.
+#: ``==>`` before ``==``, or JML's implication would be left as ``=>``; ``<=``
+#: and ``>=`` before ``=``, and both before :func:`_escape` turns a leftover
+#: ``<`` or ``>`` into an entity.
 SYMBOLS = {
+    "==>": "⇒",
+    "<=": "≤",
+    ">=": "≥",
+    "!=": "≠",
+    "==": "=",
+    "->": ARROW,
     "&&": "∧",
     "||": "∨",
     "\\forall": "∀",
@@ -170,7 +186,7 @@ def _text(condition: Optional[Condition]) -> str:
 
 
 def _symbols(condition: str) -> str:
-    """``&&``, ``||`` and ``\\forall`` as ∧, ∨ and ∀; negations stay as written."""
+    """``&&``, ``==`` and ``\\forall`` as ∧, = and ∀; negations stay as written."""
     for spelling, symbol in SYMBOLS.items():
         condition = condition.replace(spelling, symbol)
     return condition

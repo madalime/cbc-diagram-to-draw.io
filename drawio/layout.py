@@ -19,7 +19,7 @@ from typing import Dict, List
 
 from models import Diagram, Statement
 
-BOX_WIDTH = 480
+BOX_WIDTH = 300
 BOX_HEIGHT = 40
 COLUMN_GAP = 40
 ROW_GAP = 40
@@ -34,8 +34,9 @@ MARGIN = 40
 #: One line of a declaration box -- its heading, or one entry.
 LINE_HEIGHT = 20
 
-#: A declaration box holds short entries, so half a statement box does.
-DECLARATION_WIDTH = BOX_WIDTH / 2
+#: A declaration box holds short entries, so it stays narrower than a statement
+#: box -- and keeps its own width, rather than following :data:`BOX_WIDTH`.
+DECLARATION_WIDTH = 240
 
 
 @dataclass(frozen=True)
